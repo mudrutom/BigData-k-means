@@ -1,10 +1,17 @@
 package cz.cvut.bigdata.kmeans;
 
 import cz.cvut.bigdata.cli.ArgumentParser;
+import cz.cvut.bigdata.kmeans.clusters.ClusterKeyWritable;
+import cz.cvut.bigdata.kmeans.clusters.ClusteringMapper;
+import cz.cvut.bigdata.kmeans.clusters.ClusteringPartitioner;
+import cz.cvut.bigdata.kmeans.clusters.ClusteringReducer;
+import cz.cvut.bigdata.kmeans.vector.VectorWritable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
@@ -42,35 +49,48 @@ public class Main extends Configured implements Tool {
 		final int k = parser.getInt("k");
 		final Path inputDir = new Path(parser.getString("input"));
 		final Path outputDir = new Path(parser.getString("output"));
+		final Path cacheDir = outputDir.suffix("cache");
 
 		conf = getConf();
 		hdfs = FileSystem.get(conf);
 
-		// create the k-means job
-		final Job kMeansJob = prepareKMeansJob(k, inputDir, outputDir);
+		initDistributedCache(k, cacheDir);
 
-		// TODO execute k-means job iteratively
+		final Job clusteringJob = prepareClusteringJob(k, inputDir, outputDir);
 
-		// execute the job
-		return kMeansJob.waitForCompletion(true) ? 0 : 1;
+		// TODO execute Clustering job iteratively
+
+		return clusteringJob.waitForCompletion(true) ? 0 : 1;
 	}
 
-	/** Create and setup the k-means job. */
-	private Job prepareKMeansJob(int k, Path input, Path output) throws IOException {
-		final Job job = new Job(conf, "k-means");
+	/** Initialise the distributed file cache. */
+	private void initDistributedCache(int k, Path cacheDir) throws IOException {
+		// delete cache directory (if it exists)
+		if (hdfs.exists(cacheDir)) {
+			hdfs.delete(cacheDir, true);
+		}
+
+		for (int i = 0; i < k; i++) {
+			DistributedCache.addCacheFile(cacheDir.suffix("part-r-0" + i).toUri(), conf);
+		}
+	}
+
+	/** Create and setup the clustering job. */
+	private Job prepareClusteringJob(int k, Path input, Path output) throws IOException {
+		final Job job = new Job(conf, "Clustering");
 
 		job.setNumReduceTasks(k);
 
 		// set MarReduce classes
-		job.setJarByClass(KMeansMapper.class);
-		job.setMapperClass(KMeansMapper.class);
-		job.setReducerClass(KMeansReducer.class);
-		job.setPartitionerClass(HashPartitioner.class);
+		job.setJarByClass(ClusteringMapper.class);
+		job.setMapperClass(ClusteringMapper.class);
+		job.setReducerClass(ClusteringReducer.class);
+		job.setPartitionerClass(ClusteringPartitioner.class);
 
 		// set the key-value classes
-		job.setMapOutputKeyClass(Text.class);
-		job.setMapOutputValueClass(Text.class);
-		job.setOutputKeyClass(Text.class);
+		job.setMapOutputKeyClass(ClusterKeyWritable.class);
+		job.setMapOutputValueClass(VectorWritable.class);
+		job.setOutputKeyClass(IntWritable.class);
 		job.setOutputValueClass(Text.class);
 
 		// setup input and output

@@ -53,7 +53,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>cz.cvut.bigdata.tfidf.Main</mainClass>
+                            <mainClass>cz.cvut.bigdata.kmeans.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

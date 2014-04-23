@@ -5,6 +5,8 @@ import cz.cvut.bigdata.kmeans.clusters.ClusterKeyWritable;
 import cz.cvut.bigdata.kmeans.clusters.ClusteringMapper;
 import cz.cvut.bigdata.kmeans.clusters.ClusteringPartitioner;
 import cz.cvut.bigdata.kmeans.clusters.ClusteringReducer;
+import cz.cvut.bigdata.kmeans.norm.NormalizeMapper;
+import cz.cvut.bigdata.kmeans.norm.NormalizeReducer;
 import cz.cvut.bigdata.kmeans.vector.VectorWritable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -15,8 +17,10 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -48,19 +52,21 @@ public class Main extends Configured implements Tool {
 
 		final int k = parser.getInt("k");
 		final Path inputDir = new Path(parser.getString("input"));
-		final Path outputDir = new Path(parser.getString("output"));
-		final Path cacheDir = outputDir.suffix("cache");
+		final String outputDir = parser.getString("output");
 
 		conf = getConf();
 		hdfs = FileSystem.get(conf);
 
-		initDistributedCache(k, cacheDir);
+		// input/output dirs
+		final Path norm = new Path(outputDir, "norm");
+//		final Path cache = new Path(outputDir, "cache");
 
-		final Job clusteringJob = prepareClusteringJob(k, inputDir, outputDir);
+		final Job normalizeJob = prepareNormalizeJob(k, inputDir, norm);
+//		final Job clusteringJob = prepareClusteringJob(k, inputDir, outputDir);
 
 		// TODO execute Clustering job iteratively
 
-		return clusteringJob.waitForCompletion(true) ? 0 : 1;
+		return normalizeJob.waitForCompletion(true) ? 0 : 1;
 	}
 
 	/** Initialise the distributed file cache. */
@@ -98,6 +104,39 @@ public class Main extends Configured implements Tool {
 		job.setInputFormatClass(TextInputFormat.class);
 		FileOutputFormat.setOutputPath(job, output);
 		job.setOutputFormatClass(TextOutputFormat.class);
+
+		// delete output directory (if it exists)
+		if (hdfs.exists(output)) {
+			hdfs.delete(output, true);
+		}
+
+		return job;
+	}
+
+	/** Create and setup the normalize job. */
+	private Job prepareNormalizeJob(int k, Path input, Path output) throws IOException {
+		final Job job = new Job(conf, "Normalize");
+
+		job.setNumReduceTasks(k);
+
+		// set MarReduce classes
+		job.setJarByClass(NormalizeMapper.class);
+		job.setMapperClass(NormalizeMapper.class);
+		job.setReducerClass(NormalizeReducer.class);
+		job.setPartitionerClass(HashPartitioner.class);
+
+		// set the key-value classes
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(VectorWritable.class);
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(Text.class);
+
+		// setup input and multiple outputs
+		FileInputFormat.addInputPath(job, input);
+		job.setInputFormatClass(KeyValueTextInputFormat.class);
+		FileOutputFormat.setOutputPath(job, output);
+		job.setOutputFormatClass(TextOutputFormat.class);
+		MultipleOutputs.addNamedOutput(job, "centroid", TextOutputFormat.class, IntWritable.class, Text.class);
 
 		// delete output directory (if it exists)
 		if (hdfs.exists(output)) {

@@ -11,6 +11,7 @@ import cz.cvut.bigdata.kmeans.vector.VectorWritable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.filecache.DistributedCache;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -59,25 +60,40 @@ public class Main extends Configured implements Tool {
 
 		// input/output dirs
 		final Path norm = new Path(outputDir, "norm");
-//		final Path cache = new Path(outputDir, "cache");
+		final Path cache = new Path(outputDir, "cache");
+		final Path cluster = new Path(outputDir, "cluster");
 
 		final Job normalizeJob = prepareNormalizeJob(k, inputDir, norm);
-//		final Job clusteringJob = prepareClusteringJob(k, inputDir, outputDir);
+		if (normalizeJob.waitForCompletion(true)) {
+			initDistributedCache(cache, norm);
+		} else {
+			return 1;
+		}
+
+		final Job clusteringJob = prepareClusteringJob(k, inputDir, cluster);
 
 		// TODO execute Clustering job iteratively
 
-		return normalizeJob.waitForCompletion(true) ? 0 : 1;
+		return clusteringJob.waitForCompletion(true) ? 0 : 1;
 	}
 
 	/** Initialise the distributed file cache. */
-	private void initDistributedCache(int k, Path cacheDir) throws IOException {
+	private void initDistributedCache(Path cacheDir, Path normDir) throws IOException {
 		// delete cache directory (if it exists)
 		if (hdfs.exists(cacheDir)) {
 			hdfs.delete(cacheDir, true);
 		}
+		hdfs.mkdirs(cacheDir);
 
-		for (int i = 0; i < k; i++) {
-			DistributedCache.addCacheFile(cacheDir.suffix("part-r-0" + i).toUri(), conf);
+		// list all the produced files
+		for (FileStatus status : hdfs.listStatus(normDir)) {
+			Path file = status.getPath();
+			if (file.getName().startsWith("centroid")) {
+				// move each centroid
+				Path cacheFile = new Path(cacheDir, file.getName().replace("centroid", "part"));
+				hdfs.rename(file, cacheFile);
+				DistributedCache.addCacheFile(cacheFile.toUri(), conf);
+			}
 		}
 	}
 

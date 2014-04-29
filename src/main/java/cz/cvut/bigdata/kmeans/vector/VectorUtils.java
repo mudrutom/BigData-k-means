@@ -50,23 +50,18 @@ public class VectorUtils {
 		return distance;
 	}
 
-	public static VectorWritable findMean(Iterable<VectorWritable> vectors) {
-		final VectorWritable mean = new VectorWritable();
-
-		int count = 0;
-		for (VectorWritable vector : vectors) {
-			for (Long index : vector.indices()) {
-				double value = mean.get(index);
-				mean.set(index, value + vector.get(index));
-			}
-			count++;
+	public static void addToMean(VectorWritable mean, VectorWritable vector) {
+		for (Long index : vector.indices()) {
+			double value = mean.get(index);
+			mean.set(index, value + vector.get(index));
 		}
+	}
+
+	public static void normalizeMean(VectorWritable mean, int vectorCount) {
 		for (Long index : mean.indices()) {
 			double value = mean.get(index);
-			mean.set(index, value / count);
+			mean.set(index, value / vectorCount);
 		}
-
-		return mean;
 	}
 
 }

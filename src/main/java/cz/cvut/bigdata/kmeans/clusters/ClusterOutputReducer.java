@@ -1,6 +1,5 @@
 package cz.cvut.bigdata.kmeans.clusters;
 
-import cz.cvut.bigdata.kmeans.vector.VectorUtils;
 import cz.cvut.bigdata.kmeans.vector.VectorWritable;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
@@ -9,20 +8,22 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 
 import java.io.FileReader;
 import java.io.IOException;
 
-public class ClusteringReducer extends Reducer<ClusterKeyWritable, VectorWritable, IntWritable, Text> {
+public class ClusterOutputReducer extends Reducer<ClusterKeyWritable, VectorWritable, IntWritable, Text> {
 
+	private final IntWritable cluster = new IntWritable();
+	private final Text term = new Text();
+
+	private MultipleOutputs outputs;
 	private VectorWritable mean;
-	private int cluster, vectorCount;
 
 	@Override
-	protected void setup(Context context) throws IOException, InterruptedException {
-		mean = null;
-		cluster = 0;
-		vectorCount = 0;
+	public void setup(Context context) {
+		outputs = new MultipleOutputs(context);
 	}
 
 	@Override
@@ -35,21 +36,23 @@ public class ClusteringReducer extends Reducer<ClusterKeyWritable, VectorWritabl
 				String[] parts = StringUtils.split(content, '\t');
 				if (Integer.parseInt(parts[0]) == key.getCluster()) {
 					mean = new VectorWritable().parse(parts[1]);
-					cluster = key.getCluster();
+
+					// write the centroid
+					cluster.set(key.getCluster());
+					outputs.write("centroid", cluster, new Text(mean.toString()));
 					break;
 				}
 			}
 		}
 
-		// recompute the mean
-		VectorUtils.addToMean(mean, values.iterator().next());
-		vectorCount++;
+		// emit the term with its cluster
+		cluster.set(key.getCluster());
+		term.set(key.getTerm());
+		context.write(cluster, term);
 	}
 
 	@Override
 	protected void cleanup(Context context) throws IOException, InterruptedException {
-		// normalize and write the resulting mean
-		VectorUtils.normalizeMean(mean, vectorCount);
-		context.write(new IntWritable(cluster), new Text(mean.toString()));
+		outputs.close();
 	}
 }

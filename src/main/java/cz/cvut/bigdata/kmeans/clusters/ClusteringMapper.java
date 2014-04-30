@@ -5,11 +5,11 @@ import cz.cvut.bigdata.kmeans.vector.VectorWritable;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.filecache.DistributedCache;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 
+import java.io.FileReader;
 import java.io.IOException;
 
 public class ClusteringMapper extends Mapper<Text, Text, ClusterKeyWritable, VectorWritable> {
@@ -28,8 +28,7 @@ public class ClusteringMapper extends Mapper<Text, Text, ClusterKeyWritable, Vec
 		// load current centroids from the distributed cache
 		final Path[] cacheFiles = DistributedCache.getLocalCacheFiles(context.getConfiguration());
 		for (Path cacheFile : cacheFiles) {
-			FileSystem fileSystem = cacheFile.getFileSystem(context.getConfiguration());
-			String content = IOUtils.toString(fileSystem.open(cacheFile));
+			String content = IOUtils.toString(new FileReader(cacheFile.toString()));
 			String[] parts = StringUtils.split(content, '\t');
 			centroids[Integer.parseInt(parts[0])] = new VectorWritable().parse(parts[1]);
 		}

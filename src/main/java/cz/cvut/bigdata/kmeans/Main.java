@@ -70,19 +70,19 @@ public class Main extends Configured implements Tool {
 
 		// run the first clustering job
 		initDistributedCache(cache, norm);
-		Job clusteringJob = prepareClusteringJob(k, inputDir, means);
+		Job clusteringJob = prepareClusteringJob(k, norm, means);
 		if (!clusteringJob.waitForCompletion(true)) return 1;
 
 		// execute other clustering jobs iteratively
 		for (int i = 0; i < 2; i++) {
 			updateDistributedCache(cache, means);
-			clusteringJob = prepareClusteringJob(k, inputDir, means);
+			clusteringJob = prepareClusteringJob(k, norm, means);
 			if (!clusteringJob.waitForCompletion(true)) return 1;
 		}
 
 		// run the final clustering job to output the results
 		updateDistributedCache(cache, means);
-		final Job clusterOutputJob = prepareClusterOutputJob(k, inputDir, cluster);
+		final Job clusterOutputJob = prepareClusterOutputJob(k, norm, cluster);
 		return clusterOutputJob.waitForCompletion(true) ? 0 : 1;
 	}
 
@@ -112,7 +112,7 @@ public class Main extends Configured implements Tool {
 		hdfs.delete(cacheDir, true);
 		hdfs.mkdirs(cacheDir);
 
-		// lis all the produced files
+		// list all the produced files
 		for (FileStatus status : hdfs.listStatus(meansDir)) {
 			// move each centroid
 			Path file = status.getPath();

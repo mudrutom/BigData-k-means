@@ -28,9 +28,11 @@ public class ClusteringMapper extends Mapper<Text, Text, ClusterKeyWritable, Vec
 		// load current centroids from the distributed cache
 		final Path[] cacheFiles = DistributedCache.getLocalCacheFiles(context.getConfiguration());
 		for (Path cacheFile : cacheFiles) {
-			String content = IOUtils.toString(new FileReader(cacheFile.toString()));
-			String[] parts = StringUtils.split(content, '\t');
-			centroids[Integer.parseInt(parts[0])] = new VectorWritable().parse(parts[1]);
+			if (cacheFile.getName().startsWith("centroid")) {
+				String content = IOUtils.toString(new FileReader(cacheFile.toString()));
+				String[] parts = StringUtils.split(content, '\t');
+				centroids[Integer.parseInt(parts[0])] = new VectorWritable().parse(parts[1]);
+			}
 		}
 	}
 

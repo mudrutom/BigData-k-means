@@ -31,12 +31,14 @@ public class ClusteringReducer extends Reducer<ClusterKeyWritable, VectorWritabl
 			// load the mean from the distributed cache
 			final Path[] cacheFiles = DistributedCache.getLocalCacheFiles(context.getConfiguration());
 			for (Path cacheFile : cacheFiles) {
-				String content = IOUtils.toString(new FileReader(cacheFile.toString()));
-				String[] parts = StringUtils.split(content, '\t');
-				if (Integer.parseInt(parts[0]) == key.getCluster()) {
-					mean = new VectorWritable().parse(parts[1]);
-					cluster = key.getCluster();
-					break;
+				if (cacheFile.getName().startsWith("centroid")) {
+					String content = IOUtils.toString(new FileReader(cacheFile.toString()));
+					String[] parts = StringUtils.split(content, '\t');
+					if (Integer.parseInt(parts[0]) == key.getCluster()) {
+						mean = new VectorWritable().parse(parts[1]);
+						cluster = key.getCluster();
+						break;
+					}
 				}
 			}
 		}

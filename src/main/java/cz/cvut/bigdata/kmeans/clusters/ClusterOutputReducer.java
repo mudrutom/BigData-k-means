@@ -32,15 +32,17 @@ public class ClusterOutputReducer extends Reducer<ClusterKeyWritable, VectorWrit
 			// load the mean from the distributed cache
 			final Path[] cacheFiles = DistributedCache.getLocalCacheFiles(context.getConfiguration());
 			for (Path cacheFile : cacheFiles) {
-				String content = IOUtils.toString(new FileReader(cacheFile.toString()));
-				String[] parts = StringUtils.split(content, '\t');
-				if (Integer.parseInt(parts[0]) == key.getCluster()) {
-					mean = new VectorWritable().parse(parts[1]);
+				if (cacheFile.getName().startsWith("centroid")) {
+					String content = IOUtils.toString(new FileReader(cacheFile.toString()));
+					String[] parts = StringUtils.split(content, '\t');
+					if (Integer.parseInt(parts[0]) == key.getCluster()) {
+						mean = new VectorWritable().parse(parts[1]);
 
-					// write the centroid
-					cluster.set(key.getCluster());
-					outputs.write("centroid", cluster, new Text(mean.toString()));
-					break;
+						// write the centroid
+						cluster.set(key.getCluster());
+						outputs.write("centroid", cluster, new Text(mean.toString()));
+						break;
+					}
 				}
 			}
 		}

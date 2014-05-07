@@ -1,6 +1,5 @@
 package cz.cvut.bigdata.kmeans.vector;
 
-import java.util.LinkedHashSet;
 import java.util.Set;
 
 public class VectorUtils {
@@ -23,10 +22,7 @@ public class VectorUtils {
 	public static double cosineSimilarity(VectorWritable one, VectorWritable two) {
 		double similarity = 0.0;
 
-		final Set<Long> indices = new LinkedHashSet<Long>();
-		indices.addAll(one.indices());
-		indices.addAll(two.indices());
-
+		final Set<Long> indices = (one.size() <= two.size()) ? one.indices() : two.indices();
 		for (Long index : indices) {
 			similarity += one.get(index) * two.get(index);
 		}
@@ -37,10 +33,7 @@ public class VectorUtils {
 	public static double euclideanDistance(VectorWritable one, VectorWritable two) {
 		double distance = 0.0;
 
-		final Set<Long> indices = new LinkedHashSet<Long>();
-		indices.addAll(one.indices());
-		indices.addAll(two.indices());
-
+		final Set<Long> indices = (one.size() <= two.size()) ? one.indices() : two.indices();
 		for (Long index : indices) {
 			double delta = one.get(index) - two.get(index);
 			distance += delta * delta;

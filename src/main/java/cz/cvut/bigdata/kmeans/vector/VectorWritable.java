@@ -22,6 +22,12 @@ public class VectorWritable implements WritableComparable<VectorWritable> {
 		values.put(index, value);
 	}
 
+	public void setZero(Long index) {
+		if (values.containsKey(index)) {
+			values.remove(index);
+		}
+	}
+
 	public Set<Long> indices() {
 		return values.keySet();
 	}

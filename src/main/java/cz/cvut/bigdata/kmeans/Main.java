@@ -62,7 +62,7 @@ public class Main extends Configured implements Tool {
 		final Path norm = new Path(outputDir, "norm");
 		final Path cache = new Path(outputDir, "cache");
 		final Path means = new Path(outputDir, "means");
-		final Path cluster = new Path(outputDir, "cluster");
+		final Path clusters = new Path(outputDir, "clusters");
 
 		// run the normalize job
 		final Job normalizeJob = prepareNormalizeJob(k, inputDir, norm);
@@ -74,7 +74,7 @@ public class Main extends Configured implements Tool {
 		if (!clusteringJob.waitForCompletion(true)) return 1;
 
 		// execute other clustering jobs iteratively
-		for (int i = 0; i < 2; i++) {
+		for (int i = 0; i < k; i++) {
 			updateDistributedCache(cache, means);
 			clusteringJob = prepareClusteringJob(k, norm, means);
 			if (!clusteringJob.waitForCompletion(true)) return 1;
@@ -82,7 +82,7 @@ public class Main extends Configured implements Tool {
 
 		// run the final clustering job to output the results
 		updateDistributedCache(cache, means);
-		final Job clusterOutputJob = prepareClusterOutputJob(k, norm, cluster);
+		final Job clusterOutputJob = prepareClusterOutputJob(k, norm, clusters);
 		return clusterOutputJob.waitForCompletion(true) ? 0 : 1;
 	}
 

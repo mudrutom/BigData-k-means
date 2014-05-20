@@ -1,5 +1,6 @@
 package cz.cvut.bigdata.kmeans.clusters;
 
+import cz.cvut.bigdata.kmeans.vector.VectorUtils;
 import cz.cvut.bigdata.kmeans.vector.VectorWritable;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
@@ -12,6 +13,7 @@ import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.TreeSet;
 
 public class ClusterOutputReducer extends Reducer<ClusterKeyWritable, VectorWritable, IntWritable, Text> {
 
@@ -21,9 +23,14 @@ public class ClusterOutputReducer extends Reducer<ClusterKeyWritable, VectorWrit
 	private MultipleOutputs outputs;
 	private VectorWritable mean;
 
+	private int k;
+	private TreeSet<Prototype> prototypes;
+
 	@Override
 	public void setup(Context context) {
 		outputs = new MultipleOutputs(context);
+		k = context.getNumReduceTasks();
+		prototypes = new TreeSet<Prototype>();
 	}
 
 	@Override
@@ -47,14 +54,50 @@ public class ClusterOutputReducer extends Reducer<ClusterKeyWritable, VectorWrit
 			}
 		}
 
+		// add the vector as a prototype
+		final Prototype prototype = new Prototype(key.getTerm(), VectorUtils.cosineSimilarity(mean, values.iterator().next()));
+		prototypes.add(prototype);
+		if (prototypes.size() > k) {
+			// remove the one with the lowest similarity
+			prototypes.pollFirst();
+		}
+
 		// emit the term with its cluster
-		cluster.set(key.getCluster());
 		term.set(key.getTerm());
 		context.write(cluster, term);
 	}
 
 	@Override
 	protected void cleanup(Context context) throws IOException, InterruptedException {
+		// write the prototypes
+		for (Prototype prototype : prototypes) {
+			term.set(prototype.getTerm());
+			outputs.write("prototype", cluster, term);
+		}
 		outputs.close();
+	}
+
+	public static class Prototype implements Comparable<Prototype> {
+
+		private final String term;
+		private final double similarity;
+
+		public Prototype(String term, double similarity) {
+			this.term = term;
+			this.similarity = similarity;
+		}
+
+		public String getTerm() {
+			return term;
+		}
+
+		public double getSimilarity() {
+			return similarity;
+		}
+
+		@Override
+		public int compareTo(Prototype o) {
+			return Double.compare(similarity, o.similarity);
+		}
 	}
 }

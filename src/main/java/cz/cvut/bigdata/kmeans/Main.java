@@ -178,6 +178,7 @@ public class Main extends Configured implements Tool {
 		FileOutputFormat.setOutputPath(job, output);
 		job.setOutputFormatClass(TextOutputFormat.class);
 		MultipleOutputs.addNamedOutput(job, "centroid", TextOutputFormat.class, IntWritable.class, Text.class);
+		MultipleOutputs.addNamedOutput(job, "prototype", TextOutputFormat.class, IntWritable.class, Text.class);
 
 		// delete output directory (if it exists)
 		if (hdfs.exists(output)) {
